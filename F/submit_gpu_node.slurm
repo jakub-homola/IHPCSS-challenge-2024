@@ -38,7 +38,7 @@
 # The number of nodes (at most 2)
 #SBATCH -N 2
 
-# The number of MP processes per node
+# The number of MPI processes per node
 #SBATCH --ntasks-per-node=1
 
 # The number of OpenMP threads. If using MPI, it is the number of OpenMP threads
