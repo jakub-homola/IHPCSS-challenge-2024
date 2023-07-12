@@ -38,7 +38,7 @@ PROGRAM main
     ! Get the time at the very start.
     start = omp_get_wtime()
     
-    CALL generate_sneaky_graph()
+    CALL generate_nice_graph()
 
     CALL calculate_pagerank(pagerank)
 

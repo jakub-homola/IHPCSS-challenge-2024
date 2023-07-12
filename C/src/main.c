@@ -192,7 +192,7 @@ int main(int argc, char* argv[])
     // Get the time at the very start.
     double start = omp_get_wtime();
     
-    generate_sneaky_graph();
+    generate_nice_graph();
  
     /// The array in which each vertex pagerank is stored.
     double pagerank[GRAPH_ORDER];
