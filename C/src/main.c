@@ -78,19 +78,19 @@ void calculate_pagerank(double pagerank[])
  
         for(int r = 0; r < GRAPH_ORDER; r++)
         {
+            int outdegree = 0;
+            for(int c = 0; c < GRAPH_ORDER; c++)
+            {
+                if (adjacency_matrix[r][c] == 1.0)
+                {
+                    outdegree++;
+                }
+            }
+
 		    for(int c = 0; c < GRAPH_ORDER; c++)
             {
 				if (adjacency_matrix[r][c] == 1.0)
                 {
-					int outdegree = 0;
-				 
-					for(int k = 0; k < GRAPH_ORDER; k++)
-                    {
-						if (adjacency_matrix[r][k] == 1.0)
-                        {
-							outdegree++;
-						}
-					}
 					new_pagerank[c] += pagerank[r] / (double)outdegree;
 				}
 			}
