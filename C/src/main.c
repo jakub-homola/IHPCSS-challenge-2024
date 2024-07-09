@@ -46,7 +46,7 @@ void initialize_graph(double * adjm)
  * @brief Calculates the pagerank of all vertices in the graph.
  * @param pagerank The array in which store the final pageranks.
  */
-void calculate_pagerank(double pagerank[], double * adjm)
+void calculate_pagerank(double * restrict pagerank, double * restrict adjm)
 {
     double initial_rank = 1.0 / GRAPH_ORDER;
  
