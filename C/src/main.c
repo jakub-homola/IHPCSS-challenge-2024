@@ -68,6 +68,20 @@ void calculate_pagerank(double pagerank[], double * adjm)
         new_pagerank[i] = 0.0;
     }
 
+    int * outdegrees_of_rows = (int*)malloc(GRAPH_ORDER * sizeof(int));
+    for(int r = 0; r < GRAPH_ORDER; r++)
+    {
+        int outdegree = 0;
+        for(int c = 0; c < GRAPH_ORDER; c++)
+        {
+            if (adjm[r * LD + c] == 1.0)
+            {
+                outdegree++;
+            }
+        }
+        outdegrees_of_rows[r] = outdegree;
+    }
+
     // If we exceeded the MAX_TIME seconds, we stop. If we typically spend X seconds on an iteration, and we are less than X seconds away from MAX_TIME, we stop.
     while(elapsed < MAX_TIME && (elapsed + time_per_iteration) < MAX_TIME)
     {
@@ -80,20 +94,15 @@ void calculate_pagerank(double pagerank[], double * adjm)
  
         for(int r = 0; r < GRAPH_ORDER; r++)
         {
-            int outdegree = 0;
-            for(int c = 0; c < GRAPH_ORDER; c++)
-            {
-                if (adjm[r * LD + c] == 1.0)
-                {
-                    outdegree++;
-                }
-            }
+            int outdegree = outdegrees_of_rows[r];
+            double my_pagerank = pagerank[r];
+            double increment = my_pagerank / (double)outdegree;
 
 		    for(int c = 0; c < GRAPH_ORDER; c++)
             {
 				if (adjm[r * LD + c] == 1.0)
                 {
-					new_pagerank[c] += pagerank[r] / (double)outdegree;
+					new_pagerank[c] += increment;
 				}
 			}
 		}
@@ -132,6 +141,8 @@ void calculate_pagerank(double pagerank[], double * adjm)
 		iteration++;
 		time_per_iteration = elapsed / iteration;
     }
+
+    free(outdegrees_of_rows);
     
     printf("%zu iterations achieved in %.2f seconds\n", iteration, elapsed);
 }
