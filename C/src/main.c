@@ -18,24 +18,26 @@
 /// The number of seconds to not exceed forthe calculation loop.
 #define MAX_TIME 10
 
+#define LD GRAPH_ORDER
+
 /**
  * @brief Indicates which vertices are connected.
  * @details If an edge links vertex A to vertex B, then adjacency_matrix[A][B]
  * will be 1.0. The absence of edge is represented with value 0.0.
  * Redundant edges are still represented with value 1.0.
  */
-double adjacency_matrix[GRAPH_ORDER][GRAPH_ORDER];
+// double adjacency_matrix[GRAPH_ORDER][GRAPH_ORDER];
 double max_diff = 0.0;
 double min_diff = 1.0;
 double total_diff = 0.0;
  
-void initialize_graph(void)
+void initialize_graph(double * adjm)
 {
     for(int i = 0; i < GRAPH_ORDER; i++)
     {
         for(int j = 0; j < GRAPH_ORDER; j++)
         {
-            adjacency_matrix[i][j] = 0.0;
+            adjm[i * LD + j] = 0.0;
         }
     }
 }
@@ -44,7 +46,7 @@ void initialize_graph(void)
  * @brief Calculates the pagerank of all vertices in the graph.
  * @param pagerank The array in which store the final pageranks.
  */
-void calculate_pagerank(double pagerank[])
+void calculate_pagerank(double pagerank[], double * adjm)
 {
     double initial_rank = 1.0 / GRAPH_ORDER;
  
@@ -81,7 +83,7 @@ void calculate_pagerank(double pagerank[])
             int outdegree = 0;
             for(int c = 0; c < GRAPH_ORDER; c++)
             {
-                if (adjacency_matrix[r][c] == 1.0)
+                if (adjm[r * LD + c] == 1.0)
                 {
                     outdegree++;
                 }
@@ -89,7 +91,7 @@ void calculate_pagerank(double pagerank[])
 
 		    for(int c = 0; c < GRAPH_ORDER; c++)
             {
-				if (adjacency_matrix[r][c] == 1.0)
+				if (adjm[r * LD + c] == 1.0)
                 {
 					new_pagerank[c] += pagerank[r] / (double)outdegree;
 				}
@@ -137,11 +139,11 @@ void calculate_pagerank(double pagerank[])
 /**
  * @brief Populates the edges in the graph for testing.
  **/
-void generate_nice_graph(void)
+void generate_nice_graph(double * adjm)
 {
     printf("Generate a graph for testing purposes (i.e.: a nice and conveniently designed graph :) )\n");
     double start = omp_get_wtime();
-    initialize_graph();
+    initialize_graph(adjm);
     for(int i = 0; i < GRAPH_ORDER; i++)
     {
         for(int j = 0; j < GRAPH_ORDER; j++)
@@ -150,7 +152,7 @@ void generate_nice_graph(void)
             int destination = j;
             if(i != j)
             {
-                adjacency_matrix[source][destination] = 1.0;
+                adjm[source * LD + destination] = 1.0;
             }
         }
     }
@@ -160,11 +162,11 @@ void generate_nice_graph(void)
 /**
  * @brief Populates the edges in the graph for the challenge.
  **/
-void generate_sneaky_graph(void)
+void generate_sneaky_graph(double * adjm)
 {
     printf("Generate a graph for the challenge (i.e.: a sneaky graph :P )\n");
     double start = omp_get_wtime();
-    initialize_graph();
+    initialize_graph(adjm);
     for(int i = 0; i < GRAPH_ORDER; i++)
     {
         for(int j = 0; j < GRAPH_ORDER - i; j++)
@@ -173,7 +175,7 @@ void generate_sneaky_graph(void)
             int destination = j;
             if(i != j)
             {
-                adjacency_matrix[source][destination] = 1.0;
+                adjm[source * LD + destination] = 1.0;
             }
         }
     }
@@ -191,12 +193,16 @@ int main(int argc, char* argv[])
 
     // Get the time at the very start.
     double start = omp_get_wtime();
+
+    double * adjm = (double*)malloc(LD * GRAPH_ORDER * sizeof(double));
     
-    generate_nice_graph();
+    generate_nice_graph(adjm);
  
     /// The array in which each vertex pagerank is stored.
     double pagerank[GRAPH_ORDER];
-    calculate_pagerank(pagerank);
+    calculate_pagerank(pagerank, adjm);
+
+    free(adjm);
  
     // Calculates the sum of all pageranks. It should be 1.0, so it can be used as a quick verification.
     double sum_ranks = 0.0;
