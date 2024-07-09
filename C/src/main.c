@@ -196,7 +196,7 @@ int main(int argc, char* argv[])
 
     double * adjm = (double*)malloc(LD * GRAPH_ORDER * sizeof(double));
     
-    generate_nice_graph(adjm);
+    generate_sneaky_graph(adjm);
  
     /// The array in which each vertex pagerank is stored.
     double pagerank[GRAPH_ORDER];
