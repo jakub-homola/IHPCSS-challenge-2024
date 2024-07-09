@@ -100,10 +100,7 @@ void calculate_pagerank(double * restrict pagerank, double * restrict adjm)
 
 		    for(int c = 0; c < GRAPH_ORDER; c++)
             {
-				if (adjm[r * LD + c] == 1.0)
-                {
-					new_pagerank[c] += increment;
-				}
+                new_pagerank[c] += increment * adjm[r * LD + c];
 			}
 		}
  
