@@ -92,15 +92,21 @@ void calculate_pagerank(double * restrict pagerank, double * restrict adjm)
             new_pagerank[i] = 0.0;
         }
  
-        for(int r = 0; r < GRAPH_ORDER; r++)
-        {
-            int outdegree = outdegrees_of_rows[r];
-            double my_pagerank = pagerank[r];
-            double increment = my_pagerank / (double)outdegree;
+        // row-major transposed matrix
+        // or col-major non-transposed
+        // input vector pagerank[]/outdegree[]
+        // output vector new_pagerank
+        // so this is matrix-vector multiplication with col-major matrix
 
-		    for(int c = 0; c < GRAPH_ORDER; c++)
+        for(int c = 0; c < GRAPH_ORDER; c++)
+        {
+            int outdegree = outdegrees_of_rows[c];
+            double my_pagerank = pagerank[c];
+            double input = my_pagerank / (double)outdegree;
+
+		    for(int r = 0; r < GRAPH_ORDER; r++)
             {
-                new_pagerank[c] += increment * adjm[r * LD + c];
+                new_pagerank[r] += input * adjm[c * LD + r];
 			}
 		}
  
