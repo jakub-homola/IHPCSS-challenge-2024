@@ -92,6 +92,7 @@ void calculate_pagerank(double pagerank[])
             new_pagerank[i] = 0.0;
         }
  
+        #pragma omp parallel for collapse(2)
 		for(int i = my_i_start; i < my_i_end; i++)
         {
 			for(int j = 0; j < GRAPH_ORDER; j++)
@@ -107,6 +108,7 @@ void calculate_pagerank(double pagerank[])
 							outdegree++;
 						}
 					}
+                    #pragma omp atomic
 					new_pagerank[i] += pagerank[j] / (double)outdegree;
 				}
 			}
