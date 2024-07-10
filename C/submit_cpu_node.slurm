@@ -11,19 +11,21 @@
 #SBATCH -o output.txt
 
 # The partition to use, shared CPU nodes in this case
-#SBATCH -p RM-shared
+# this did not work for 2 nodes
+# SBATCH -p RM-shared
+#SBATCH -p RM-small
 
 # Jobs are capped at 30 seconds (Your code should run for ~10 seconds anyway)
 #SBATCH -t 00:00:30
 
 # The number of nodes (at most 2)
-#SBATCH -N 1
+#SBATCH -N 2
 
 # The number of MPI processes per node
-#SBATCH --ntasks-per-node=1
+#SBATCH --ntasks-per-node=16
 
 # The number of OpenMP threads per MPI process
-#SBATCH --cpus-per-task=2
+#SBATCH --cpus-per-task=16
 
 # The number of OpenMP threads. If using MPI, it is the number of OpenMP threads
 # per MPI process
@@ -42,4 +44,5 @@ module load cuda/11.7.1 nvhpc/22.9 openmpi/4.0.5-nvhpc22.9
 make
 
 # Execute the program
-mpirun -n $SLURM_NTASKS --bind-to none --report-bindings ./bin/main
+#mpirun -n $SLURM_NTASKS --bind-to none --report-bindings ./bin/main
+mpirun -n $SLURM_NTASKS --map-by slot:PE=16 --bind-to core --report-bindings ./bin/main
