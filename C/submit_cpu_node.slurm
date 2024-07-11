@@ -11,7 +11,8 @@
 #SBATCH -o output.txt
 
 # The partition to use, shared CPU nodes in this case
-#SBATCH -p RM-shared
+# SBATCH -p RM-shared
+#SBATCH -p RM-small
 
 # Jobs are capped at 30 seconds (Your code should run for ~10 seconds anyway)
 #SBATCH -t 00:00:30
@@ -23,7 +24,7 @@
 #SBATCH --ntasks-per-node=1
 
 # The number of OpenMP threads per MPI process
-#SBATCH --cpus-per-task=2
+#SBATCH --cpus-per-task=128
 
 # The number of OpenMP threads. If using MPI, it is the number of OpenMP threads
 # per MPI process

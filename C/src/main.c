@@ -82,6 +82,18 @@ void calculate_pagerank(double * restrict pagerank, double * restrict adjm)
         inverse_outdegrees[r] = 1.0 / (double)outdegree;
     }
 
+    int aaa = omp_get_wtime();
+    double * adjm_trans = (double*)malloc(GRAPH_ORDER * LD * sizeof(double));
+    #pragma omp parallel for schedule(static)
+    for(int r = 0; r < GRAPH_ORDER; r++)
+    {
+        for(int c = 0; c < GRAPH_ORDER; c++)
+        {
+            adjm_trans[r * LD + c] = adjm[c * LD + r];
+        }
+    }
+    printf("AAA %f\n", omp_get_wtime() - aaa);
+
     // If we exceeded the MAX_TIME seconds, we stop. If we typically spend X seconds on an iteration, and we are less than X seconds away from MAX_TIME, we stop.
     while(elapsed < MAX_TIME && (elapsed + time_per_iteration) < MAX_TIME)
     {
@@ -98,14 +110,16 @@ void calculate_pagerank(double * restrict pagerank, double * restrict adjm)
         // output vector new_pagerank
         // so this is matrix-vector multiplication with col-major matrix
 
-        for(int c = 0; c < GRAPH_ORDER; c++)
+        #pragma omp parallel for schedule(static)
+        for(int r = 0; r < GRAPH_ORDER; r++)
         {
-            double input = pagerank[c] * inverse_outdegrees[c];
-
-		    for(int r = 0; r < GRAPH_ORDER; r++)
+            double npr = 0;
+            for(int c = 0; c < GRAPH_ORDER; c++)
             {
-                new_pagerank[r] += input * adjm[c * LD + r];
+                double input = pagerank[c] * inverse_outdegrees[c];
+                npr += input * adjm_trans[r * LD + c];
 			}
+            new_pagerank[r] = npr;
 		}
  
         for(int i = 0; i < GRAPH_ORDER; i++)
@@ -143,6 +157,7 @@ void calculate_pagerank(double * restrict pagerank, double * restrict adjm)
 		time_per_iteration = elapsed / iteration;
     }
 
+    free(adjm_trans);
     free(inverse_outdegrees);
     
     printf("%zu iterations achieved in %.2f seconds\n", iteration, elapsed);
