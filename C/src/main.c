@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
+#include <string.h>
 #include <omp.h>
 #include <mpi.h>
 
@@ -52,13 +53,22 @@ void calculate_pagerank(double pagerank[])
     MPI_Comm_rank(MPI_COMM_WORLD, &mpirank);
     MPI_Comm_size(MPI_COMM_WORLD, &mpisize);
 
-    int each_i_count = (GRAPH_ORDER - 1) / mpisize + 1;
-    int my_i_start = mpirank * each_i_count;
-    int my_i_end = (mpirank+1) * each_i_count;
-    if(my_i_end > GRAPH_ORDER)
-    {
-        my_i_end = GRAPH_ORDER;
-    }
+    if(mpisize != 16) MPI_Abort(MPI_COMM_WORLD, 16);
+
+    int chunkrow = mpirank / 4;
+    int chunkcol = mpirank % 4;
+
+    MPI_Comm comm_row;
+    MPI_Comm comm_col;
+    MPI_Comm_split(MPI_COMM_WORLD, chunkrow, chunkcol, &comm_row);
+    MPI_Comm_split(MPI_COMM_WORLD, chunkcol, chunkrow, &comm_col);
+
+    int chunk_size = GRAPH_ORDER / 4;
+    int my_i_start = chunkrow * chunk_size;
+    int my_i_end = (chunkrow+1) * chunk_size;
+    int my_j_start = chunkcol * chunk_size;
+    int my_j_end = (chunkcol+1) * chunk_size;
+    // I assume the GRAPH_ORDER=1000 will always be that way
  
     // Initialise all vertices to 1/n.
     for(int i = 0; i < GRAPH_ORDER; i++)
@@ -77,12 +87,20 @@ void calculate_pagerank(double pagerank[])
     {
         new_pagerank[i] = 0.0;
     }
+    double helper[2*GRAPH_ORDER];
+
+    double tm_kernel = 0;
+    double tm_allgather = 0;
+    double tm_break = 0;
 
     // If we exceeded the MAX_TIME seconds, we stop. If we typically spend X seconds on an iteration, and we are less than X seconds away from MAX_TIME, we stop.
     while(1)
     {
+        double tm_a1 = omp_get_wtime();
         int do_next = (elapsed < MAX_TIME && (elapsed + time_per_iteration) < MAX_TIME);
         MPI_Bcast(&do_next, 1, MPI_INT, 0, MPI_COMM_WORLD);
+        double tm_a2 = omp_get_wtime();
+        tm_break += tm_a2 - tm_a1;
         if(!do_next) break;
 
         double iteration_start = omp_get_wtime();
@@ -92,10 +110,11 @@ void calculate_pagerank(double pagerank[])
             new_pagerank[i] = 0.0;
         }
  
-        #pragma omp parallel for collapse(2)
+        double tm_b1 = omp_get_wtime();
+        #pragma omp parallel for
 		for(int i = my_i_start; i < my_i_end; i++)
         {
-			for(int j = 0; j < GRAPH_ORDER; j++)
+			for(int j = my_j_start; j < my_j_end; j++)
             {
 				if (adjacency_matrix[j][i] == 1.0)
                 {
@@ -108,27 +127,34 @@ void calculate_pagerank(double pagerank[])
 							outdegree++;
 						}
 					}
-                    #pragma omp atomic
 					new_pagerank[i] += pagerank[j] / (double)outdegree;
 				}
 			}
 		}
+        double tm_b2 = omp_get_wtime();
+        tm_kernel += tm_b2 - tm_b1;
+
+        double tm_c1 = omp_get_wtime();
+        MPI_Reduce(new_pagerank + my_i_start, helper + my_i_start, chunk_size, MPI_DOUBLE, MPI_SUM, chunkrow, comm_row);
+        memcpy(new_pagerank + my_i_start, helper + my_i_start, chunk_size * sizeof(double));
+        // diagonal block now have correct data in new_pagerank + my_i_start
+        // for the diagonal block, my_i_start = my_j_start
+        // need to bcast vertically
+        MPI_Bcast(new_pagerank + my_j_start, chunk_size, MPI_DOUBLE, chunkcol, comm_col);
+        // now all have correct data in new_pagerank + my_j_start (input for next interation)
+        double tm_c2 = omp_get_wtime();
+        tm_allgather += tm_c2 - tm_c1;
  
-        for(int i = my_i_start; i < my_i_end; i++)
+        for(int i = 0; i < GRAPH_ORDER; i++)
         {
             new_pagerank[i] = DAMPING_FACTOR * new_pagerank[i] + damping_value;
         }
-
-        MPI_Allgather(new_pagerank + my_i_start, each_i_count, MPI_DOUBLE, new_pagerank, each_i_count, MPI_DOUBLE, MPI_COMM_WORLD);
  
         diff = 0.0;
-        for(int i = 0; i < GRAPH_ORDER; i++)
+        for(int j = my_j_start; j < my_j_end; j++)
         {
-            diff += fabs(new_pagerank[i] - pagerank[i]);
+            diff += fabs(new_pagerank[j] - pagerank[j]);
         }
-        max_diff = (max_diff < diff) ? diff : max_diff;
-        total_diff += diff;
-        min_diff = (min_diff > diff) ? diff : min_diff;
  
         for(int i = 0; i < GRAPH_ORDER; i++)
         {
@@ -136,16 +162,27 @@ void calculate_pagerank(double pagerank[])
         }
             
         double pagerank_total = 0.0;
-        for(int i = 0; i < GRAPH_ORDER; i++)
+        for(int j = my_j_start; j < my_j_end; j++)
         {
-            pagerank_total += pagerank[i];
+            pagerank_total += pagerank[j];
         }
-        if(fabs(pagerank_total - 1.0) >= 1E-12)
+        if(chunkcol == 0)
         {
-            if(mpirank == 0)
+            double inputs[2] = {diff, pagerank_total};
+            double outputs[2];
+            MPI_Reduce(inputs, outputs, 2, MPI_DOUBLE, MPI_SUM, 0, comm_col);
+            diff = outputs[0];
+            pagerank_total = outputs[1];
+        }
+        if(mpirank == 0)
+        {
+            if(fabs(pagerank_total - 1.0) >= 1E-12)
             {
                 printf("[ERROR] Iteration %zu: sum of all pageranks is not 1 but %.12f.\n", iteration, pagerank_total);
             }
+            max_diff = (max_diff < diff) ? diff : max_diff;
+            total_diff += diff;
+            min_diff = (min_diff > diff) ? diff : min_diff;
         }
  
 		double iteration_end = omp_get_wtime();
@@ -157,6 +194,7 @@ void calculate_pagerank(double pagerank[])
     if(mpirank == 0)
     {
         printf("%zu iterations achieved in %.2f seconds\n", iteration, elapsed);
+        printf("Timers:   %f   %f   %f\n", tm_break, tm_kernel, tm_allgather);
     }
 }
 
